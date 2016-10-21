@@ -894,3 +894,47 @@ class TestMemberActionController(test_functional.PecanFunctionalTest):
         url = '/v2.0/{}/something/put_meh.json'.format(self.collection)
         resp = self.app.get(url, expect_errors=True)
         self.assertEqual(405, resp.status_int)
+
+class TestFlavorsController(test_functional.PecanFunctionalTest):
+    def setUp(self):
+        fake_ext = pecan_utils.FakeFlavorsExtension()
+        fake_plugin = pecan_utils.FakeFlavorPlugin()
+        plugins = {pecan_utils.FakeFlavorPlugin.PLUGIN_TYPE: fake_plugin}
+        new_extensions = {fake_ext.get_alias(): fake_ext}
+        super(TestFlavorsController, self).setUp(
+            service_plugins=plugins, extensions=new_extensions)
+        self.collection = pecan_utils.FakeFlavorsExtension.FAKE_RESOURCE_COLLECTION
+        self.sub_collection = pecan_utils.FakeFlavorsExtension.FAKE_SUB_RESOURCE_COLLECTION
+        policy.init()
+        policy._ENFORCER.set_rules(
+            oslo_policy.Rules.from_dict(
+                {'get_service_profile': '',
+                 'get_flavor_service_profiles': ''}),
+            overwrite=False)
+        self.addCleanup(policy.reset)
+
+    def test_get_flavor(self):
+        url = '/v2.0/{}/something'.format(self.collection)
+        resp = self.app.get(url)
+        self.assertEqual(200, resp.status_int)
+        self.assertEqual({'flavor': {'description': 'something'}}, resp.json)
+
+    def test_get_flavors(self):
+        url = '/v2.0/{}'.format(self.collection)
+        resp = self.app.get(url)
+        self.assertEqual(200, resp.status_int)
+        self.assertEqual({'flavors': [{'description': 'fake'}]}, resp.json)
+
+    def test_get_service_profile(self):
+        url = '/v2.0/{}/something'.format(self.sub_collection.replace('_', '-'))
+        resp = self.app.get(url)
+        self.assertEqual(200, resp.status_int)
+        self.assertEqual({'service_profile': {'description': 'something'}}, resp.json)
+
+    def test_get_flavor_service_profiles(self):
+        url = '/v2.0/{}/something/{}'.format(self.collection,
+                                             'service-profiles')
+        resp = self.app.get(url)
+        self.assertEqual(200, resp.status_int)
+        self.assertEqual({'service_profiles': [{'description': 'something'}]},
+                         resp.json)

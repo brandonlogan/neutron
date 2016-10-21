@@ -211,3 +211,128 @@ class FakePlugin(object):
 
     def boo_meh(self, context, id_, fields=None):
         return {'boo_yah': id_}
+
+
+class FakeFlavorsExtension(extensions.ExtensionDescriptor):
+
+    FAKE_RESOURCE = 'flavor'
+    FAKE_RESOURCE_COLLECTION = 'flavors'
+    FAKE_SUB_RESOURCE_COLLECTION = 'service_profiles'
+
+    RESOURCE_ATTRIBUTE_MAP = {
+        'flavors': {
+            'id': {'allow_post': False, 'allow_put': False,
+                   'validate': {'type:uuid': None},
+                   'is_visible': True,
+                   'primary_key': True},
+            'description': {'allow_post': True, 'allow_put': True,
+                            'is_visible': True}
+        },
+        'service_profiles': {
+            'id': {'allow_post': False, 'allow_put': False,
+                   'validate': {'type:uuid': None},
+                   'is_visible': True,
+                   'primary_key': True},
+            'description': {'allow_post': True, 'allow_put': True,
+                            'is_visible': True}
+        },
+    }
+
+    SUB_RESOURCE_ATTRIBUTE_MAP = {
+        'service_profiles': {
+            'parent': {'collection_name': 'flavors',
+                       'member_name': 'flavor'},
+            'parameters': {'id': {'allow_post': True, 'allow_put': False,
+                                  'validate': {'type:uuid': None},
+                                  'is_visible': True}
+                           }
+                            }
+    }
+
+    @classmethod
+    def get_name(cls):
+        return "fake-flavors-ext"
+
+    @classmethod
+    def get_alias(cls):
+        return "fake-flavors-ext"
+
+    @classmethod
+    def get_description(cls):
+        return "Flavor specification for Neutron advanced services"
+
+    @classmethod
+    def get_updated(cls):
+        return "2015-09-17T10:00:00-00:00"
+
+    @classmethod
+    def get_resources(self):
+        """Returns Ext Resources."""
+        resources = []
+        fake_plugin = FakeFlavorPlugin()
+        for collection_name in self.RESOURCE_ATTRIBUTE_MAP:
+            resource_name = collection_name[:-1]
+            params = self.RESOURCE_ATTRIBUTE_MAP.get(collection_name, {})
+            attributes.PLURALS.update({collection_name:
+                                           resource_name})
+            controller = base.create_resource(
+                collection_name, resource_name, fake_plugin,
+                params, allow_bulk=True, allow_pagination=True,
+                allow_sorting=True)
+            resource = extensions.ResourceExtension(
+                collection_name, controller, attr_map=params)
+            resources.append(resource)
+
+        for collection_name in self.SUB_RESOURCE_ATTRIBUTE_MAP:
+            # Special handling needed for sub-resources with 'y' ending
+            # (e.g. proxies -> proxy)
+            resource_name = collection_name[:-1]
+            parent = self.SUB_RESOURCE_ATTRIBUTE_MAP[collection_name].get('parent')
+            params = self.SUB_RESOURCE_ATTRIBUTE_MAP[collection_name].get(
+                'parameters')
+
+            controller = base.create_resource(collection_name, resource_name,
+                                              fake_plugin, params,
+                                              allow_bulk=True,
+                                              parent=parent)
+            resource = extensions.ResourceExtension(
+                collection_name,
+                controller, parent,
+                path_prefix='',
+                attr_map=params)
+            resources.append(resource)
+
+        return resources
+
+    def update_attributes_map(self, attributes):
+        super(FakeFlavorsExtension, self).update_attributes_map(
+            attributes, extension_attrs_map=self.RESOURCE_ATTRIBUTE_MAP)
+
+    def get_extended_resources(self, version):
+        if version == "2.0":
+            return self.RESOURCE_ATTRIBUTE_MAP
+        else:
+            return {}
+
+class FakeFlavorPlugin(object):
+    PLUGIN_TYPE = 'fake-flavor-plugin'
+    supported_extension_aliases = ['fake-flavors-ext']
+
+    @classmethod
+    def get_plugin_type(cls):
+        return cls.PLUGIN_TYPE
+
+    def get_flavor(self, context, id_, fields=None):
+        return {'description': id_}
+
+    def get_flavors(self, context, filters=None, fields=None):
+        return [{'description': 'fake'}]
+
+    def get_service_profile(self, context, id_, fields=None):
+        return {'description': id_}
+
+    def get_service_profiles(self, context, filters=None, fields=None):
+        return [{'description': 'fake'}]
+
+    def get_flavor_service_profiles(self, context, flavor_id, filters=None, fields=None):
+        return [{'description': 'something'}]

@@ -82,8 +82,9 @@ class ItemController(utils.NeutronPecanController):
     @utils.expose()
     def _lookup(self, collection, *remainder):
         request.context['collection'] = collection
+        collection_path = '/'.join([self.resource, collection])
         controller = manager.NeutronManager.get_controller_for_resource(
-            collection)
+            collection_path)
         if not controller:
             if collection not in self._member_actions:
                 LOG.warning(_LW("No controller found for: %s - returning"
@@ -163,10 +164,10 @@ class CollectionsController(utils.NeutronPecanController):
             data = {key: resources[0]}
         neutron_context = request.context['neutron_context']
         creator_args = [neutron_context]
+        creator_kwargs = {self.resource: data}
         if 'parent_id' in request.context:
-            creator_args.append(request.context['parent_id'])
-        creator_args.append(data)
-        return {key: creator(*creator_args)}
+            creator_kwargs[self._parent_id_name] = request.context['parent_id']
+        return {key: creator(*creator_args, **creator_kwargs)}
 
 
 class MemberActionController(ItemController):
