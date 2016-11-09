@@ -13,7 +13,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from oslo_middleware import request_id
 from pecan import hooks
 
 from neutron import context
@@ -39,15 +38,10 @@ class ContextHook(hooks.PecanHook):
     priority = 95
 
     def before(self, state):
-        user_name = state.request.headers.get('X-User-Name', '')
-        tenant_name = state.request.headers.get('X-Project-Name')
-        req_id = state.request.headers.get(request_id.ENV_REQUEST_ID)
-        # TODO(kevinbenton): is_admin logic
-        # Create a context with the authentication data
-        ctx = context.Context.from_environ(state.request.environ,
-                                           user_name=user_name,
-                                           tenant_name=tenant_name,
-                                           request_id=req_id)
-
+        # neutron.context will be populated in the neutron.auth module if
+        # the config's auth_strategy is not noauth.  If noauth, then every
+        # request is considered admin
+        ctx = (state.request.environ.get('neutron.context') or
+               context.get_admin_context())
         # Inject the context...
         state.request.context['neutron_context'] = ctx

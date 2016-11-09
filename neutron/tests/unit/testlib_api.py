@@ -24,6 +24,7 @@ from oslo_db import exception as oslodb_exception
 from oslo_db.sqlalchemy import enginefacade
 from oslo_db.sqlalchemy import provision
 from oslo_db.sqlalchemy import session
+from oslo_service import wsgi as oslo_wsgi
 
 from neutron.db import api as db_api
 from neutron.db.migration import cli as migration
@@ -46,13 +47,34 @@ class ExpectedException(testtools.ExpectedException):
         return False
 
 
+from webtest import app
+from neutron import context as ncontext
+class NeutronRequest(oslo_wsgi.Request):
+
+    def __init__(self, env, **kw):
+        super(NeutronRequest, self).__init__(env, **kw)
+
+    def get_response(self, application=None, catch_exc_info=False):
+        # NOTE: If application is callable, its a function and being called
+        # from the TestApp.  If it is not callable, it is actually the TestAPP.
+        # This is a hack to get the tests working that were written for use
+        # with the legacy wsgi layer and not the pecan layer.
+        if callable(application):
+            resp = super(NeutronRequest, self).get_response(
+                application=application, catch_exc_info=catch_exc_info)
+        else:
+            resp = application.request(self, expect_errors=True)
+        return resp
+
+
 def create_request(path, body, content_type, method='GET',
                    query_string=None, context=None):
     if query_string:
         url = "%s?%s" % (path, query_string)
     else:
         url = path
-    req = wsgi.Request.blank(url)
+    url = '/v2.0%s' % url
+    req = NeutronRequest.blank(str(url))
     req.method = method
     req.headers = {}
     req.headers['Accept'] = content_type

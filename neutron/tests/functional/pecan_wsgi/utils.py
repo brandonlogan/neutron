@@ -10,12 +10,22 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import os
+
+from pecan.testing import load_test_app
+
 from neutron.api import extensions
 from neutron.api.v2 import attributes
 from neutron.api.v2 import base
 from neutron.pecan_wsgi import controllers
 from neutron.pecan_wsgi.controllers import utils as pecan_utils
 
+
+def setup_app():
+    return load_test_app(os.path.join(
+        os.path.dirname(__file__),
+        'config.py'
+    ))
 
 class FakeSingularCollectionExtension(extensions.ExtensionDescriptor):
 

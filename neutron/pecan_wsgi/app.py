@@ -22,6 +22,7 @@ from oslo_middleware import request_id
 import pecan
 
 from neutron.api import versions
+from neutron import auth
 from neutron.pecan_wsgi import hooks
 from neutron.pecan_wsgi import startup
 
@@ -73,6 +74,10 @@ def _wrap_app(app):
     if cfg.CONF.auth_strategy == 'noauth':
         pass
     elif cfg.CONF.auth_strategy == 'keystone':
+        # NOTE: NeutronKeystoneContext must wrap the app first before
+        # AuthProtocol so that when a request comes in AuthProtocol's
+        # middleware is run first.
+        app = auth.NeutronKeystoneContext(app)
         app = auth_token.AuthProtocol(app, {})
     else:
         raise n_exc.InvalidConfigurationOption(

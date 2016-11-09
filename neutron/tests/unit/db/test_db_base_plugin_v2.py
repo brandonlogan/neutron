@@ -126,13 +126,14 @@ class NeutronDbPluginV2TestCase(testlib_api.WebTestCase):
             [test_lib.test_config.get(key, default)
              for key, default in six.iteritems(service_plugins or {})]
         )
-
+        cfg.CONF.set_override('auth_strategy', 'noauth')
         cfg.CONF.set_override('base_mac', "12:34:56:78:90:ab")
         cfg.CONF.set_override('max_dns_nameservers', 2)
         cfg.CONF.set_override('max_subnet_host_routes', 2)
         cfg.CONF.set_override('allow_pagination', True)
         cfg.CONF.set_override('allow_sorting', True)
-        self.api = router.APIRouter()
+        from neutron.tests.functional.pecan_wsgi import utils
+        self.api = utils.setup_app()
         # Set the default status
         self.net_create_status = 'ACTIVE'
         self.port_create_status = 'ACTIVE'

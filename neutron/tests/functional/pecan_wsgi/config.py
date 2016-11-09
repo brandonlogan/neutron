@@ -19,7 +19,6 @@ app = {
     'root': 'neutron.pecan_wsgi.controllers.root.RootController',
     'modules': ['neutron.pecan_wsgi'],
     'errors': {
-        400: '/error',
         '__force_dict__': True
     }
 }
