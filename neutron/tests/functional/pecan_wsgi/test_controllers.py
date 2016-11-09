@@ -406,23 +406,31 @@ class TestPaginationAndSorting(test_functional.PecanFunctionalTest):
         super(TestPaginationAndSorting, self).setUp()
         self.plugin = manager.NeutronManager.get_plugin()
         self.ctx = context.get_admin_context()
-        self._create_networks(self.RESOURCE_COUNT)
+        # self._create_networks(self.RESOURCE_COUNT)
         self.networks = self._get_collection()['networks']
 
-    def _create_networks(self, count=1):
+    def _create_networks(self, count=1, names=None):
+        names = names or []
         network_ids = []
+        networks = []
         for index in range(count):
-            network = {'name': 'pecannet-%d' % index, 'tenant_id': 'tenid',
+            name = 'pecannet-%d' % index
+            if len(names) > index:
+                name = names[index]
+            elif names:
+                name = names[len(names) - 1]
+            network = {'name': name, 'tenant_id': 'tenid',
                        'shared': False, 'admin_state_up': True,
                        'status': 'ACTIVE'}
-            network_id = self.plugin.create_network(
-                self.ctx, {'network': network})['id']
-            network_ids.append(network_id)
-        return network_ids
+            network = self.plugin.create_network(
+                self.ctx, {'network': network})
+            network_ids.append(network['id'])
+            networks.append(network)
+        return networks
 
     def _get_collection(self, collection=None, limit=None, marker=None,
                         fields=None, page_reverse=False, sort_key=None,
-                        sort_dir=None):
+                        sort_dir=None, url_override=None):
         collection = collection or 'networks'
         fields = fields or []
         query_params = []
@@ -440,6 +448,7 @@ class TestPaginationAndSorting(test_functional.PecanFunctionalTest):
         url = '/v2.0/%s.json' % collection
         if query_params:
             url = '%s?%s' % (url, '&'.join(query_params))
+        url = url_override or url
         list_resp = self.app.get(url, headers={'X-Project-Id': 'tenid'})
         self.assertEqual(200, list_resp.status_int)
         return list_resp.json
@@ -510,6 +519,29 @@ class TestPaginationAndSorting(test_functional.PecanFunctionalTest):
         self._test_get_collection_with_pagination(expected_ids,
                                                   sort_key='name',
                                                   sort_dir='asc')
+
+    def _get_pagination_link(self, resources, collection=None, dir='next'):
+        collection = collection or 'networks'
+        links = resources['%s_links' % collection]
+        href = None
+        for link in links:
+            if link['rel'] == dir:
+                href = link['href']
+        return '/' + href.strip('http://localhost')
+
+    def test_complicated_BS(self):
+        names = ('test1', 'abc1', 'test10', '123test')# + ('test1',)
+        self._create_networks(5, names)
+        networks = self._get_collection(sort_key='name', sort_dir='asc')['networks']
+        next_url = None
+        for network in networks[::-1]:
+            if not next_url:
+                nets = self._get_collection(sort_key='name',
+                                                sort_dir='asc',
+                                                limit=1, page_reverse=True)
+            else:
+                nets = self._get_collection(url_override=next_url)
+            next_url = self._get_pagination_link(nets)
 
 
 class TestRequestProcessing(TestRootController):
